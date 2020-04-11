@@ -25,7 +25,6 @@ function tileByWidth(width, screenx, screeny) --dimensions
   local tilingX = (screenx - (0.25 * width)) / tilingWidth
   local cols  =     math.floor(tilingX)
   print("cols  = " .. cols)
-  print("tiled1 ", tiled1)
   --these are supposed to support them
   local padx = 0.5 + math.floor((tilingX % 1) * tilingWidth / 2)
   local pady = 0.5 + math.floor((tilingY % 1) * h / 2)
@@ -87,13 +86,12 @@ function HexGrid:flatten()
   return accumulator
 end
 
---[[
-1 = 1         3 = 4        5 = 7        7 = 10
-      2 = 2.5      4 = 5.5       6 = 8.5
-
-1.5 * - 0.5
-1 * 1.5 - 0.5 = 1
-2 * 1.5 - 0.5 = 2.5
-3 * 1.5 - 0.5 = 4
-4 * 1.5 - 0.5 = 5.5
---]]
+function HexGrid:indexDoubles(x, dy)
+  local isColOdd = x  % 2 == 1
+  local isRowOdd = dy % 2 == 1
+  local inBounds = 0 < x and x <= #self and 0 < dy / 2 and dy / 2 <= #self[x]
+  local validCoords = isColOdd == isRowOdd
+  assert(validCoords, "HexGrid:indexDoubles called with invalid coords")
+  local y = isColOdd and (dy + 1) / 2 or dy / 2
+  return self[x][y]
+end

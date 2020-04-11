@@ -15,9 +15,9 @@ CYAN    = {0.0, 1.0, 1.0}
 
 dbgColours = {
   RGB.BLACK,
-  RGB.WHITE,
-  {0.6, 0, 0}, -- mute red
-  GREEN,
+  {0.9, 0.9, 0.9}, -- grey
+  {0.7, 0.0, 0.0}, -- mute red
+  {0.0, 1.0, 0.0},
   {0.3, 0.3, 1}, -- lighter blue
   RGB.MAGENTA,
   RGB.YELLOW,

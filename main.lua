@@ -3,10 +3,8 @@ require 'objects/ant'
 require 'objects/hexagon'
 require 'objects/grid'
 require 'libraries/constants'
---turn off for debugging
-function print()
-  return nil
-end
+debug = false
+if debug then local print = function() return nil end end
 --
 --
 
@@ -17,19 +15,17 @@ function love.load(arg)
   pad = 0.5
   WIDTH, HEIGHT = love.graphics.getDimensions()
 
-  ODDMOVETABLE  = {NW = {-1, -1}, N = {0, -1}, NE = {1, -1},
-                   SW = {-1,  0}, S = {0,  1}, SE = {1,  0}}
-  EVENMOVETABLE = {NW = {-1,  0}, N = {0, -1}, NE = {1,  0},
-                   SW = {-1,  1}, S = {0,  1}, SE = {1,  1}}
-
-
   --                        1   2   3  4  5   6   7
-  --ant = HexAnt:new({rule = {R1, R2, N, U, R2, R1, L2}}, {120, 120})
-  ant = HexAnt:new({rule = {R1, N, L1, N, R1}}, {120, 120})
-  allAnts = {ant}
-  --ant = HexAnt:new({rule = {R1, L1}}, {65, 65})
-  print (ant:getPos())
-  defaultGrid = tileByWidth(8, WIDTH, HEIGHT)
+  --myRule =                 {R1, R2, N, U, R2, R1, L2}
+  myRule  =                 {R2, N, L2, N}
+  allAnts = {
+  HexAnt:new({rule = myRule}, {150, 220}),
+  }
+  setupGrid(8)
+end
+
+function setupGrid(w)
+  defaultGrid = tileByWidth(w, WIDTH, HEIGHT)
   --defaultGrid = HexGrid:new()
   print("defaultGrid----------", defaultGrid)
 
@@ -38,13 +34,31 @@ function love.load(arg)
   EVENROWS = #defaultGrid[2]
   activeHexes = {}
 
+  BACKGROUND = renderGrid()
+  love.graphics.setBlendMode("alpha", "premultiplied")
+
+end
+
+function renderGrid()
+  surface = love.graphics.newCanvas(WIDTH, HEIGHT)
+
+  -- Rectangle is drawn to the canvas with the regular alpha blend mode.
+  love.graphics.setCanvas(surface)
+  love.graphics.clear()
+  love.graphics.setBlendMode("alpha")
+  love.graphics.setColor(0.3, 0.3, 0.3)
+  for i, hex in ipairs(defaultGrid:flatten()) do
+    love.graphics.polygon('line', hex:flatten())
+  end
+  love.graphics.setCanvas()
+  return surface
 end
 
 function readHexState(hex)
-  if not activeHexes[hex] then
+  if activeHexes[hex] == nil then
     initHex(hex)
   end
-    return activeHexes[hex] -- if this is a table remember to do unpack()
+  return activeHexes[hex] -- if this is a table remember to do unpack()
 end
 
 function writeHexState(hex, n)
@@ -66,7 +80,7 @@ function flipHexNew(hex, nStates)
     error("flipHexNew called on un init'ed hex")
 
   else
-    print("flipHex(hex, rule): hex found in activeHexes. updating rule state")
+    print("flipHexNew(hex, rule): hex found in activeHexes. updating rule state")
     local newState = (state % nStates) + 1
     print("oldstate " .. state .. "newstate " .. newState)
     if newState == 1 then
@@ -80,33 +94,11 @@ function flipHexNew(hex, nStates)
 end
 
 
-function flipHex(hex, rule)
-  -- hex info is in the form {Rule, State}
-  local hexInfo = activeHexes[hex]
-  if not hexInfo then -- we have to create a new entry
-    print("flipHex(hex, rule): hex not yet in activeHexes. assigning it now")
-    hexInfo = {rule, 1}
-    activeHexes[hex] = hexInfo
-
-  else
-    print("flipHex(hex, rule): hex found in activeHexes. updating rule state")
-    local rule = hexInfo[1]
-    local state = hexInfo[2]
-    local newState = (state % #rule) + 1
-
-    hexInfo[2] = newState
-    -- if the rule has completed set the hex to empty
-    if newState == #rule then activeHexes[hex] = nil end
-  end
-
-  return hexInfo
-end
-
 function love.update(dt)
   if not PAUSED then
       ft = frameTimer - dt
       --print("update frameTimer: ", frameTimer)
-      if ft < 0 then frameTimer = ft + 0.005; repN(tick, 15)
+      if ft < 0 then frameTimer = ft + 0.005; repN(tick, 1)
       else frameTimer = ft
     end
   end
@@ -120,77 +112,60 @@ end
 function tick()
   print("")
   print("TICK--------------------")
-  ant:move()
-  ant:clamp(1, 1, COLS, ODDROWS, EVENROWS)
-  local pos = ant:getPos()
-  local antHex = defaultGrid[pos[1]][pos[2]]
-  print("TICK pos = ", pos)
-  print("TICK antHex = ", antHex)
-  --local ruleInfo = flipHex(antHex, ant.rule)
-  --local ruleState = ruleInfo[2]
-  local ruleState = readHexState(antHex)
-  print("TICK lookup activeHexes[antHex]", ruleInfo)
-  --print("ruleInfo[1]" , ruleInfo[1])
-  --print("ruleInfo[2]" , ruleInfo[2])
-  --print("ruleInfo[1][1]", ruleInfo[1][1])
-  --print("ruleInfo[1][2]", ruleInfo[1][2])
-  --ant:turn(ruleInfo[1][ruleState])
-  ant:turn(ant.rule[ruleState])
-  flipHexNew(antHex, #ant.rule)
+  local toFlip   = {}
+  local toRemove = {}
+  local ruleSize
+  for i, ant in ipairs(allAnts) do
+    local removeMe = false
+    local pos = ant:getPos()
+    ant:move()
+    if ant:clamp(1, 1, 2, COLS, 2 * ODDROWS - 1, 2 * EVENROWS, pos) then
+      removeMe = true
+    end
+    pos = ant:getPos()
+    if not removeMe then
+      local antHex = defaultGrid:indexDoubles(unpack(pos))
+      local ruleState = readHexState(antHex)
+      ruleSize = #ant.rule
+      ant:turn(ant.rule[ruleState])
+      toFlip[antHex] = true
+    else
+      toRemove[i] = ant
+    end
+  end
+
+  for i, _ in pairs(toRemove) do
+    table.remove(allAnts, i)
+  end
+
+  for hex, _ in pairs(toFlip) do
+    flipHexNew(hex, ruleSize)
+  end
 end -- tick
 
-function coordToHex(p)
-  local x = p[2]
-  local y
-  if p[1] % 2 == 0 then
-    local y = p[1]
-  else
-    local y = p[1] + 1
-  end
+function drawHex(hex, colour)
+  local colour = colour or {1.0, 1.0, 1.0}
+  love.graphics.setColor(colour)
+  love.graphics.polygon('fill', hex:flatten())
 end
 
-
 function love.draw(dt)
-  love.graphics.setColor(0.3, 0.3, 0.3)
-
-  for i, hex in ipairs(defaultGrid:flatten()) do
-    love.graphics.polygon('line', hex:flatten())
-  end
-
-  local antPos = ant:getPos()
-  local antHex = defaultGrid[antPos[1]][antPos[2]]
+  love.graphics.setColor(1.0, 1.0, 1.0) -- NEEDED
+  love.graphics.draw(BACKGROUND)
 
   --the ant's trail
   love.graphics.setColor(1, 1, 1)
   for k, v in pairs(activeHexes) do
-    if v == 1 then
-      love.graphics.setColor(flowerColours[1])
-      love.graphics.polygon('fill', k:flatten())
-    elseif v == 2 then
-      love.graphics.setColor(flowerColours[2])
-      love.graphics.polygon('fill', k:flatten())
-    elseif v == 3 then
-      love.graphics.setColor(flowerColours[3])
-      love.graphics.polygon('fill', k:flatten())
-    elseif v == 4 then
-      love.graphics.setColor(flowerColours[4])
-      love.graphics.polygon('fill', k:flatten())
-    elseif v == 5 then
-      love.graphics.setColor(flowerColours[5])
-      love.graphics.polygon('fill', k:flatten())
-    elseif v == 6 then
-      love.graphics.setColor(flowerColours[6])
-      love.graphics.polygon('fill', k:flatten())
-    else
-      love.graphics.setColor(flowerColours[7])
-      love.graphics.polygon('fill', k:flatten())
-    end
+    --drawHex(k, flowerColours[v])
+    drawHex(k, dbgColours[v])
   end
 
   -- the ant itself
-  love.graphics.setColor(1, 0, 0)
-  love.graphics.polygon('fill', antHex:flatten())
-
+  for _, ant in ipairs(allAnts) do
+    local antPos = ant:getPos()
+    local antHex = defaultGrid:indexDoubles(unpack(antPos))
+    drawHex(antHex, {1, 0, 0})
+  end
 end
 
 
@@ -203,11 +178,15 @@ function love.keypressed(key)
   elseif key == '.' then -- run the simulation 1 step
     tick()
   elseif key == 'a' then -- new random ant
-    print("new ant!")
+    local x = math.random(2, COLS - 1)
+    local y = math.random(2, ODDROWS - 2)
+    local dy = x % 2 == 1 and (2 * y) - 1 or 2 * y
+    table.insert(allAnts, HexAnt:new({rule = myRule}, {x, dy}))
   elseif key == 'r' then -- reset
     print("reset!")
     activeHexes = {}
-    defaultGrid = tileByWidth(math.random(10, 200), WIDTH, HEIGHT)
+    allAnts = {}
+    setupGrid(math.random(10, 200))
   elseif key == 't' then -- reverse ant direction (time?)
     print("turn back time")
   elseif key == '=' then -- go ahead SKIPGENS (1000) cycles
