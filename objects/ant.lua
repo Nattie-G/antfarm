@@ -15,9 +15,9 @@ HEXMOVES = {NW, N, NE, SE, S, SW}
 HEXMOVESDEX = {}
 for k,v in pairs(HEXMOVES) do HEXMOVESDEX[v]=k end
 
-LangtonAnt = {pos = Point:new({0, 0}), rule = {L1, R1}, orientations = {W, N, E, S}}
+SquareAnt = {pos = Point:new({0, 0}), rule = {L1, R1}, orientations = {W, N, E, S}}
 
-function LangtonAnt:new(pos)
+function SquareAnt:new(pos)
    o = {}
    setmetatable(o, self)
    self.__index = self
@@ -28,11 +28,11 @@ function LangtonAnt:new(pos)
 end
 
 
-function LangtonAnt:getPos()
+function SquareAnt:getPos()
   return self.pos
 end
 
-function LangtonAnt:move()
+function SquareAnt:move()
   self[1] = self[1] + self.movementTable[self.facing][1]
   self[2] = self[2] + self.movementTable[self.facing][2]
 end
@@ -41,7 +41,7 @@ end
 HexAnt = {
   pos = Point:new(), rule = {L1, R1}, facing = NW,
   moveList = {NW, N, NE, SE, S, SW},
-  moveIndex = {NW = 1, N = 2, NE = 3, SE = 4, S = 5, SE = 6},
+  moveIndex = {NW = 1, N = 2, NE = 3, SE = 4, S = 5, SW = 6},
   mtOdd =  {NW = {-1, -1}, N = {0, -1}, NE = {1, -1},
             SW = {-1,  0}, S = {0,  1}, SE = {1,  0}},
   mtEven = {NW = {-1,  0}, N = {0, -1}, NE = {1,  0},
@@ -79,18 +79,30 @@ function HexAnt:turn(adjustment)
   print("HexAnt:turn----------")
   print("HexAnt:turn(adjustment)", adjustment)
   print ("old facing =", self.facing)
-  local index = HEXMOVESDEX[self.facing]
+  local index = self.moveIndex[self.facing]
+  print("index", index)
   local newIndex
   if HEXROTATIONSDEX[adjustment] > 0 then
     newIndex = ((index - 1) + HEXROTATIONSDEX[adjustment]) % 6 + 1
   else
     newIndex = ((index - 1) + HEXROTATIONSDEX[adjustment]) % 6 + 1
   end
-  self.facing = HEXMOVES[newIndex]
+  self.facing = self.moveList[newIndex]
   print ("new facing =", self.facing)
   return self.facing
 end
 
 function HexAnt:getPos()
-  return self.pos
+  return Point:new(self.pos)
+end
+
+function HexAnt:clamp(minx, miny, maxx, maxyodd, maxyeven)
+  local preClampPos = Point:new(self.pos)
+  if self.pos[1] < minx then self.pos[1] = minx end
+  if self.pos[1] > maxx then self.pos[1] = maxx end
+  if self.pos[2] < miny then self.pos[2] = minx end
+  if self.pos[1] % 2 == 1 then
+    if self.pos[2] > maxyodd then self.pos[2] = maxxodd end
+  elseif self.pos[2] > maxyodd then self.pos[2] = maxxodd end
+  return preClampPos == self.pos
 end
