@@ -3,8 +3,7 @@ require 'objects/ant'
 require 'objects/hexagon'
 require 'objects/grid'
 require 'libraries/constants'
-debug = false
-if debug then local print = function() return nil end end
+print = function() return nil end
 --
 --
 
@@ -16,12 +15,12 @@ function love.load(arg)
   WIDTH, HEIGHT = love.graphics.getDimensions()
 
   --                        1   2   3  4  5   6   7
-  --myRule =                 {R1, R2, N, U, R2, R1, L2}
-  myRule  =                 {R2, N, L2, N}
+  myRule =                 {R1, R2, N, U, R2, R1, L2}
+  --myRule  =                 {R2, N, L2, N}
   allAnts = {
-  HexAnt:new({rule = myRule}, {150, 220}),
+  HexAnt:new({rule = myRule}, {60, 110}),
   }
-  setupGrid(8)
+  setupGrid(18)
 end
 
 function setupGrid(w)
@@ -156,8 +155,8 @@ function love.draw(dt)
   --the ant's trail
   love.graphics.setColor(1, 1, 1)
   for k, v in pairs(activeHexes) do
-    --drawHex(k, flowerColours[v])
-    drawHex(k, dbgColours[v])
+    drawHex(k, flowerColours[v])
+    --drawHex(k, dbgColours[v])
   end
 
   -- the ant itself
